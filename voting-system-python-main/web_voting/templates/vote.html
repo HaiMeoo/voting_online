@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Vote</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+
+<div class="container">
+    <div class="card">
+        <h2>🗳️ Cast Your Vote</h2>
+
+        <!-- KHÔNG dùng form nữa -->
+        {% for c in candidates %}
+            <button onclick="vote('{{ c.Name }}')">
+                {{ c.Name }}
+            </button>
+        {% endfor %}
+
+        <br><br>
+
+        <form action="/result" method="get">
+            <button type="submit">📊 Xem kết quả vote</button>
+        </form>
+
+    </div>
+</div>
+
+<!-- ethers -->
+<script src="https://cdn.jsdelivr.net/npm/ethers@6.6.2/dist/ethers.umd.min.js"></script>
+
+<script>
+async function vote(candidate) {
+    if (!window.ethereum) {
+        alert("Chưa cài MetaMask!");
+        return;
+    }
+
+    try {
+        const provider = new ethers.BrowserProvider(window.ethereum);
+        await window.ethereum.request({ method: "eth_requestAccounts" });
+        const signer = await provider.getSigner();
+        const address = await signer.getAddress();
+
+        console.log("Đang dùng account:", address); 
+
+        // Lưu ý: Đảm bảo địa chỉ Contract này đã được deploy trên Cronos Testnet
+        const contractAddress = "0xd3D80b6De58Bfb705804cF67F00a94e2F13167fB";
+
+        const abi = [
+            {
+                "inputs": [
+                    {
+                        "internalType": "string",
+                        "name": "name",
+                        "type": "string"
+                    }
+                ],
+                "name": "vote",
+                "outputs": [],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            }
+        ];
+
+        const contract = new ethers.Contract(contractAddress, abi, signer);
+
+        // --- ĐOẠN THAY ĐỔI CHÍNH ---
+        console.log("Đang gửi lệnh vote cho:", candidate);
+        
+        // Thêm gasLimit để tránh lỗi "Out of gas" trên Testnet
+        const tx = await contract.vote(candidate, {
+            gasLimit: 300000 
+        });
+
+        alert("Giao dịch đã gửi! Đang chờ xác nhận trên Blockchain...");
+
+        const receipt = await tx.wait();
+        
+        if (receipt.status === 1) {
+            alert("✅ Vote thành công cho " + candidate + "!");
+            window.location.reload(); // Load lại để cập nhật kết quả
+        } else {
+            alert("❌ Giao dịch bị đảo ngược (Reverted) bởi Smart Contract!");
+        }
+
+    } catch (err) {
+        console.error("Lỗi chi tiết:", err);
+
+        // Trích xuất thông báo lỗi thật từ Smart Contract hoặc MetaMask
+        let errorMessage = "Vote thất bại!";
+        
+        if (err.reason) {
+            errorMessage = err.reason; // Ví dụ: "Already voted"
+        } else if (err.data && err.data.message) {
+            errorMessage = err.data.message;
+        } else if (err.message) {
+            if (err.message.includes("user rejected")) {
+                errorMessage = "Bạn đã từ chối giao dịch trên MetaMask.";
+            } else {
+                errorMessage = err.message;
+            }
+        }
+
+        alert("❌ " + errorMessage);
+    }
+}
+</script>
+
+</body>
+</html>

@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Voting System</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+
+<div class="container">
+    <div class="card">
+        <h1>🗳️ Online Voting</h1>
+
+        <form action="/vote" method="post">
+            {% for c in candidates %}
+                <button name="candidate" value="{{c.Name}}">
+                    Vote {{c.Name}}
+                </button>
+            {% endfor %}
+        </form>
+
+    </div>
+</div>
+
+</body>
+</html>

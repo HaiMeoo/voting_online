@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+
+<div class="container">
+    <div class="card">
+        <h2>🔐 Login</h2>
+
+        <!-- Login thường -->
+        <form method="POST">
+            <input type="text" name="username" placeholder="Username" required>
+            <button type="submit">Login</button>
+        </form>
+
+        <hr>
+
+        <!-- Login MetaMask -->
+        <button onclick="connectWallet()">🦊 Login bằng MetaMask</button>
+        <p id="walletAddress"></p>
+    </div>
+</div>
+
+<!-- ethers -->
+<script src="https://cdn.jsdelivr.net/npm/ethers@6.6.2/dist/ethers.umd.min.js"></script>
+
+<script>
+async function connectWallet() {
+    if (!window.ethereum) {
+        alert("Chưa cài MetaMask!");
+        return;
+    }
+
+    const provider = new ethers.BrowserProvider(window.ethereum);
+    await provider.send("eth_requestAccounts", []);
+    const signer = await provider.getSigner();
+    const address = await signer.getAddress();
+
+    // message để ký
+    const message = "Login to Voting System";
+
+    // ký message
+    const signature = await signer.signMessage(message);
+
+    // gửi về server
+    const res = await fetch("/login_wallet", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            address: address,
+            signature: signature,
+            message: message
+        })
+    });
+
+    const data = await res.json();
+
+    if (data.success) {
+        window.location.href = "/vote_page";
+    }
+}
+</script>
+
+</body>
+</html>

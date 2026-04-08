@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+
+<div class="container">
+    <div class="card">
+        <h2>📊 Kết quả</h2>
+
+        {% for c in candidates %}
+            <p>{{c.Name}} : {{c['Vote Count']}}</p>
+                
+        {% endfor %}
+
+        <br>
+        <a href="/vote_page">
+    <button>⬅ Quay lại vote</button>
+</a>
+    </div>
+</div>
+
+</body>
+</html>
