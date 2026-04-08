@@ -30,6 +30,15 @@
 <script src="https://cdn.jsdelivr.net/npm/ethers@6.6.2/dist/ethers.umd.min.js"></script>
 
 <script>
+if (window.ethereum) {
+    window.ethereum.on('accountsChanged', function (accounts) {
+        if (accounts.length > 0) {
+            alert('Bạn đã đổi tài khoản MetaMask. Trang sẽ tải lại để đồng bộ.');
+            window.location.reload();
+        }
+    });
+}
+
 async function vote(candidate) {
     if (!window.ethereum) {
         alert("Chưa cài MetaMask!");
@@ -38,11 +47,13 @@ async function vote(candidate) {
 
     try {
         const provider = new ethers.BrowserProvider(window.ethereum);
-        await window.ethereum.request({ method: "eth_requestAccounts" });
         const signer = await provider.getSigner();
         const address = await signer.getAddress();
 
-        console.log("Đang dùng account:", address); 
+        console.log("Đang dùng account:", address);
+        if (!address) {
+            throw new Error('Không lấy được địa chỉ MetaMask. Vui lòng đăng nhập lại rồi thử lại.');
+        }
 
         // Lưu ý: Đảm bảo địa chỉ Contract này đã được deploy trên Cronos Testnet
         const contractAddress = "0xd3D80b6De58Bfb705804cF67F00a94e2F13167fB";
@@ -79,7 +90,21 @@ async function vote(candidate) {
         
         if (receipt.status === 1) {
             alert("✅ Vote thành công cho " + candidate + "!");
-            window.location.reload(); // Load lại để cập nhật kết quả
+
+            const response = await fetch('/vote', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ candidate, address })
+            });
+
+            const result = await response.json();
+            if (!response.ok || !result.success) {
+                throw new Error(result.error || 'Không thể lưu vote vào server.');
+            }
+
+            window.location.href = '/result';
         } else {
             alert("❌ Giao dịch bị đảo ngược (Reverted) bởi Smart Contract!");
         }

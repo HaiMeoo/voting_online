@@ -19,6 +19,22 @@ def get_candidates():
     return df
 
 
+def ensure_current_account_session(address):
+    address = address.lower()
+    last_address = session.get("last_voted_address")
+    if last_address != address:
+        session["last_voted_address"] = address
+        session["address_has_voted"] = False
+
+
+def has_current_address_voted():
+    return session.get("address_has_voted", False)
+
+
+def set_current_address_voted():
+    session["address_has_voted"] = True
+
+
 # =========================
 # Trang đăng nhập
 # =========================
@@ -42,16 +58,57 @@ def vote_page():
     return render_template("vote.html", candidates=df.to_dict(orient="records"))
 
 
+def update_vote_count(name):
+    df = pd.read_csv(FILE_PATH)
+    if name not in df["Name"].values:
+        return False
+
+    df["Vote Count"] = df["Vote Count"].astype(int)
+    df.loc[df["Name"] == name, "Vote Count"] += 1
+    df.to_csv(FILE_PATH, index=False)
+    return True
+
+
 # =========================
-# Route vote (KHÔNG gọi blockchain nữa)
+# Route vote (ghi dữ liệu vào CSV)
 # =========================
 @app.route("/vote", methods=["POST"])
 def vote():
-    name = request.form["candidate"]
+    if request.is_json:
+        data = request.get_json()
+        name = data.get("candidate")
+        address = data.get("address")
+    else:
+        name = request.form.get("candidate")
+        address = request.form.get("address")
 
-    # Chỉ thông báo (vote thật xử lý bằng MetaMask JS)
-    flash(f"🟡 Đã gửi yêu cầu vote cho {name} (xác nhận trên MetaMask)", "info")
+    if not name or not address:
+        if request.is_json:
+            return jsonify({"success": False, "error": "Candidate and address are required"}), 400
+        flash("❌ Không tìm thấy ứng viên hoặc địa chỉ ví.", "error")
+        return redirect("/vote_page")
 
+    address = address.lower()
+    ensure_current_account_session(address)
+    if has_current_address_voted():
+        if request.is_json:
+            return jsonify({"success": False, "error": "Account này đã vote rồi."}), 400
+        flash("❌ Account này đã vote rồi.", "error")
+        return redirect("/vote_page")
+
+    success = update_vote_count(name)
+    if not success:
+        if request.is_json:
+            return jsonify({"success": False, "error": f"Không tìm thấy ứng viên {name}."}), 400
+        flash(f"❌ Không tìm thấy ứng viên {name}.", "error")
+        return redirect("/vote_page")
+
+    set_current_address_voted()
+
+    if request.is_json:
+        return jsonify({"success": True})
+
+    flash(f"✅ Vote cho {name} đã được lưu lại.", "success")
     return redirect("/vote_page")
 
 
